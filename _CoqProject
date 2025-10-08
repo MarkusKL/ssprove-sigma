@@ -1,0 +1,7 @@
+-R theories Project
+
+# Put files to be compiled with `make`:
+theories/Extra.v
+theories/Scheme.v
+theories/Schnorr.v
+theories/OR.v

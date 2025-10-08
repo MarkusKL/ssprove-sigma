@@ -1,0 +1,18 @@
+# Coq compilation files
+*.vo
+*.vok
+*.vos
+*.glob
+.*.aux
+.lia.cache
+.*.d
+Makefile.coq
+Makefile.coq.conf
+CoqMakefile
+CoqMakefile.conf
+
+# vim temporary files
+.*.swp
+
+# nix files
+result
