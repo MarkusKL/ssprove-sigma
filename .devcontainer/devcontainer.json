@@ -1,7 +1,7 @@
 {
   "name": "ssprove-devcontainer",
   "image": "ghcr.io/xtruder/nix-devcontainer:v1",
-  "onCreateCommand": "mkdir -p ~/.config/nix/ && cp .devcontainer/nix.json ~/.config/nix/ && nix-shell --command 'echo done building nix dev environment'",
+  "onCreateCommand": "mkdir -p ~/.config/nix/ && cp .devcontainer/nix.conf ~/.config/nix/ && nix-shell --command 'echo done building nix dev environment'",
 
   "customizations": {
     "vscode": {
