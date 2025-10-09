@@ -30,6 +30,8 @@ let
           '';
         };
     })) {};
+  # push cache:
+  # nix-build -E '(import ./default.nix {bundle = "8.20";}).pkgs.coqPackages.ssprove' | cachix push markuskl-ssprove
 in pkgs.mkShell {
   packages = with pkgs; [
     coqPackages.coq
