@@ -85,58 +85,63 @@ Proof. done. Qed.
 Lemma expgz_neg {G : finGroupType} {x : G} {n} : x ^- n = x ^ (- n%:Z).
 Proof. destruct n => //=. rewrite expg0 invg1 //. Qed.
 
-(* Possible WIP on next two lemmas
-Definition proj_pos : int → nat :=
-  λ z, match z with
-       | Posz n => n
-       | Negz n => 0
-       end.
-
-Definition proj_neg : int → nat :=
-  λ z, match z with
-       | Posz n => 0
-       | Negz n => n.+1
-       end.
-
-Lemma proj {z : int} : z = (proj_pos z)%:Z - (proj_neg z)%:Z.
-Proof.
-  destruct z => //=.
-  - rewrite GRing.subr0 //.
-  - rewrite NegzE GRing.sub0r //.
-Qed.
-
-Lemma exp_proj {G : finGroupType} {x : G} {z : int}
-  : x ^ z = x ^+ proj_pos z * x ^- proj_neg z.
-Proof.
-  rewrite {1}(@proj z).
-  destruct z => /=.
-  - rewrite addn0 expg0 invg1 mulg1 //.
-  - rewrite subn0 expg0 mul1g //.
-Qed.
-
 Lemma expgzD1 {G : finGroupType} {x : G} {z : int}
   : x ^ (1 + z) = x * x ^ z.
 Proof.
   destruct z => /=.
   - rewrite add1n expgS //.
   - rewrite {1}NegzE intS.
-Admitted.
- *)
+    rewrite -expgVn expgS expgVn.
+    rewrite GRing.opprD GRing.addrA.
+    rewrite GRing.subrr GRing.add0r.
+    rewrite mulKVg expgz_neg //.
+Qed.
+
+Lemma expgz_neg1 {G : finGroupType} {x : G} {z : int} : x^-1 ^ (- z) = x ^ z.
+Proof.
+  destruct z.
+  - rewrite -expgz_neg -expgVn invgK //.
+  - rewrite NegzE GRing.opprK -expgz_pos.
+    rewrite -expgz_neg -expgVn //.
+Qed.
+
+Lemma expgzDn {G : finGroupType} {x : G} {n : nat} {z' : int}
+  : x ^ (n%:Z + z') = x ^+ n * x ^ z'.
+Proof.
+  induction n => /=.
+  - rewrite GRing.add0r expg0 mul1g //.
+  - rewrite intS -GRing.addrA.
+    rewrite expgzD1 IHn mulgA expgS //.
+Qed.
 
 Lemma expgzD {G : finGroupType} {x : G} {z z' : int}
   : x ^ (z + z') = x ^ z * x ^ z'.
 Proof.
-  destruct z.
-  - induction n => /=.
-    + rewrite GRing.add0r expg0 mul1g //.
-    + rewrite intS.
-      admit.
-  - simpl.
-Admitted.
+  destruct z; [ by rewrite expgzDn |].
+  rewrite NegzE -expgz_neg1.
+  rewrite GRing.opprD GRing.opprK expgzDn.
+  rewrite -expgz_neg expgVn expgz_neg1 //.
+Qed.
+
+Lemma expgzMn {G : finGroupType} {x : G} {z : int} {n : nat}
+  : x ^ (z * n%:Z) = (x ^ z) ^+ n.
+Proof.
+  induction n.
+  - by rewrite GRing.mulr0 /= 2!expg0.
+  - rewrite intS.
+    rewrite GRing.mulrDr GRing.mulr1.
+    rewrite expgzD IHn -expgS //.
+Qed.
 
 Lemma expgzM {G : finGroupType} {x : G} {z z' : int}
   : x ^ (z * z') = (x ^ z) ^ z'.
-Proof. Admitted.
+Proof.
+  destruct z'; [ by rewrite expgzMn |].
+  rewrite NegzE GRing.mulrN.
+  rewrite -expgz_neg1 GRing.opprK expgzMn.
+  rewrite -expgz_neg -expgVn /=.
+  f_equal. destruct z; by rewrite /= expgVn.
+Qed.
 
 Lemma Hom_expgz {x : G} {z} : F (x ^ z) = F x ^ z.
 Proof.
