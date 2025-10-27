@@ -32,12 +32,12 @@ Proof. apply /card_gt0P. by exists 1. Qed.
 Module Type HomArgs.
   Parameter (G H : finGroupType).
   Parameter (C : positive).
-  Parameter (F : G → H).
+  Parameter (F : H → G → H).
   Parameter (l : nat).
   Parameter (u : G).
-  Parameter (Hom : ∀ x y, F (x * y) = F x * F y).
+  Parameter (Hom : ∀ h x y, F h (x * y) = F h x * F h y).
   Parameter (Thm3a : ∀ e e' : 'fin C, e != e' → gcdz l (e%:Z  - e'%:Z) = 1%Z).
-  Parameter (Thm3b : ∀ h, F u = h ^+ l).
+  Parameter (Thm3b : ∀ h, F h u = h ^+ l). (* same h? *)
 End HomArgs.
 
 
@@ -51,19 +51,19 @@ Notation "x ⊗  y" :=
 Notation "x ∗ y" :=
   (@mulg G x y) (at level 40).
 
-Lemma Hom1 : F 1 = 1.
+Lemma Hom1 {h} : F h 1 = 1.
 Proof.
-  apply (mulgI (F 1)).
+  apply (mulgI (F h 1)).
   rewrite -Hom 2!mulg1 //.
 Qed.
 
-Lemma Hom_invg {x : G} : F x^-1 = (F x)^-1.
+Lemma Hom_invg {h} {x : G} : F h x^-1 = (F h x)^-1.
 Proof.
-  apply (mulgI (F x)).
+  apply (mulgI (F h x)).
   rewrite -Hom mulgV mulgV Hom1 //.
 Qed.
 
-Lemma Hom_expgn {x : G} {n} : F (x ^+ n) = F x ^+ n.
+Lemma Hom_expgn {h} {x : G} {n} : F h (x ^+ n) = F h x ^+ n.
 Proof.
   induction n.
   - rewrite 2!expg0 Hom1 //.
@@ -143,7 +143,7 @@ Proof.
   f_equal. destruct z; by rewrite /= expgVn.
 Qed.
 
-Lemma Hom_expgz {x : G} {z} : F (x ^ z) = F x ^ z.
+Lemma Hom_expgz {h} {x : G} {z} : F h (x ^ z) = F h x ^ z.
 Proof.
   destruct z => /=.
   - rewrite Hom_expgn //.
@@ -160,19 +160,19 @@ Definition homomorphism : sigma :=
    ; Response := 'fin #|G|
 
    ; R :=
-      (λ h w, otf h == (F (otf w)))%bool
+      (λ h w, otf h == (F (otf h) (otf w)))%bool
    ; commit := λ h w, {code
        r ← sample uniform #|G| ;;
-       ret (fto (F (otf r)), r)
+       ret (fto (F (otf h) (otf r)), r)
      }
    ; response := λ h w a r e, {code
        ret (fto (otf r ∗ otf w ^+ e))
      }
    ; verify := λ h a e z,
-     (F (otf z) == otf a ⊗ otf h ^+ e)%bool
+     (F (otf h) (otf z) == otf a ⊗ otf h ^+ e)%bool
    ; simulate := λ h e, {code
        z ← sample uniform #|G| ;;
-       ret (fto (F (otf z) ⊗ otf h ^- e), z)
+       ret (fto (F (otf h) (otf z) ⊗ otf h ^- e), z)
      }
    ; extractor := λ h _ e e' z z',
        let (a, b) := egcdz l (e%:Z - e'%:Z) in
@@ -187,7 +187,7 @@ Proof.
   apply eq_rel_perf_ind_eq.
   simplify_eq_rel hwe.
   destruct hwe as [[h w] e].
-  ssprove_sync => /eqP -> {h}.
+  ssprove_sync => /eqP {3}->.
   apply r_const_sample_L => [|a].
   1: apply LosslessOp_uniform.
   apply r_ret => s0 s1 H'.
@@ -219,7 +219,7 @@ Proof. (* only relies on group homomorphism *)
   rewrite -(fto_otf h) (* -(fto_otf e) *).
   move: (otf w) (otf h) (*(otf e)*) => {}w {}h (*{}e*).
   rewrite otf_fto.
-  ssprove_sync_eq => /eqP -> {h}.
+  ssprove_sync_eq => /eqP {3}->.
   eapply r_uniform_bij with (1 := bij_f (w ^+ e)) => z.
   apply r_ret.
 
@@ -325,13 +325,13 @@ Module SchnorrArgs : HomArgs.
   Definition G : finGroupType := exp CG.
   Definition H : finGroupType := el CG.
   Definition C : positive := mkpos (q CG).
-  Definition F : G → H := λ x, g CG ^+ x.
+  Definition F : H → G → H := λ _ x, g CG ^+ x.
   Definition l : nat := q CG.
   Definition u : G := 1.
 
-  Lemma Hom : ∀ x y, F (x * y) = F x * F y.
+  Lemma Hom : ∀ h x y, F h (x * y) = F h x * F h y.
   Proof.
-    intros x y.
+    intros h x y.
     rewrite /F -expgD expg_modq //.
   Qed.
 
@@ -342,7 +342,7 @@ Module SchnorrArgs : HomArgs.
     apply prime_order.
   Qed.
 
-  Lemma Thm3b : ∀ h, F u = h ^+ l.
+  Lemma Thm3b : ∀ h, F h u = h ^+ l.
   Proof.
     intros h.
     rewrite expgq //.
@@ -352,5 +352,6 @@ End SchnorrArgs.
 Module Schnorr := Homomorphism SchnorrArgs.
 Print Schnorr.homomorphism.
 Check Schnorr.hom_SHVZK.
+(* Recursive Extraction Schnorr.homomorphism. *)
 
 
