@@ -355,3 +355,71 @@ Check Schnorr.hom_SHVZK.
 (* Recursive Extraction Schnorr.homomorphism. *)
 
 
+
+(* Hard Example (Hom F depends on statement h) *)
+
+Definition dprod := gproduct.Datatypes_prod__canonical__fingroup_FinGroup.
+(*Definition dpair [G1 G2 : finGroupType] : G1 → G2 → dprod G1 G2 := pair.*)
+Lemma mulg_prod [G1 G2 : finGroupType] (g1 g1' : G1) (g2 g2' : G2)
+  : @mulg (dprod G1 G2) (g1, g2) (g1', g2') = (g1 * g1', g2 * g2').
+Proof. done. Qed.
+
+Lemma expg_prod [G1 G2 : finGroupType] (g1 : G1) (g2 : G2) (n : nat)
+  : @expgn (dprod G1 G2) (g1, g2) n = (g1 ^+ n, g2 ^+ n).
+Proof.
+  induction n => //.
+  rewrite 3!expgS IHn mulg_prod //.
+Qed.
+
+Lemma Hom_prod [G H1 H2 : finGroupType]
+  (F : G → H1 * H2) x x' :
+  (F (x * x')).1 = (F x).1 * (F x').1 →
+  (F (x * x')).2 = (F x).2 * (F x').2 →
+  F (x * x') = @mulg (dprod H1 H2) (F x) (F x').
+Proof.
+  intros E1 E2. destruct (F (x * x')).
+  simpl in E1, E2; subst. by rewrite -mulg_prod.
+Qed.
+
+Axiom (h : el CG).
+
+Module HardArgs : HomArgs.
+  Definition G : finGroupType := dprod (dprod (exp CG) (exp CG)) (exp CG).
+  Definition H : finGroupType := dprod (el CG) (el CG).
+  Definition C : positive := mkpos (q CG).
+  Definition F : H → G → H := λ '(A, B) '(a, b, c),
+    (g CG ^+ a * h ^+ b, B ^+ a * h ^+ c).
+  Definition l : nat := q CG.
+  Definition u : G := 1.
+
+  Lemma Hom : ∀ h x y, F h (x * y) = F h x * F h y.
+  Proof.
+    intros [A B] [[a b] c] [[a' b'] c'].
+    apply Hom_prod => /=; rewrite 2! expg_modq.
+    - rewrite expgD -2!mulgA.
+      f_equal.
+      rewrite expgD 2!mulgA.
+      f_equal.
+      rewrite CyclicGroup.mulgC //.
+    - rewrite expgD -2!mulgA.
+      f_equal.
+      rewrite expgD 2!mulgA.
+      f_equal.
+      rewrite CyclicGroup.mulgC //.
+  Qed.
+
+  Lemma Thm3a : ∀ e e' : 'fin C, e != e' → gcdz l (e%:Z - e'%:Z) = 1%Z.
+  Proof.
+    intros e e' H.
+    apply gcdz_prime_diff => //.
+    apply prime_order.
+  Qed.
+
+  Lemma Thm3b : ∀ h, F h u = h ^+ l.
+  Proof.
+    intros [A B].
+    rewrite /F /= expg_prod 2!expgq gsimp //.
+  Qed.
+End HardArgs.
+
+Module HardExample := Homomorphism HardArgs.
