@@ -27,23 +27,30 @@ Instance finGroupPositive {G : finGroupType} : Positive #|G|.
 Proof. apply /card_gt0P. by exists 1. Qed.
 
 (* Challenge space can only be ranges [0, C-1].
-   Will this be problem? *)
+   Is this a significant limitation? *)
 
-Module Type HomArgs.
-  Parameter (G H : finGroupType).
-  Parameter (C : positive).
-  Parameter (F : H → G → H).
-  Parameter (l : nat).
-  Parameter (u : G).
-  Parameter (Hom : ∀ h x y, F h (x * y) = F h x * F h y).
-  Parameter (Thm3a : ∀ e e' : 'fin C, e != e' → gcdz l (e%:Z  - e'%:Z) = 1%Z).
-  Parameter (Thm3b : ∀ h, F h u = h ^+ l). (* same h? *)
-End HomArgs.
+Record HomArgs :=
+  { G : finGroupType
+  ; H : finGroupType
+  ; C : positive
+  ; F : H → G → H
+  ; l : nat
+  ; u : G
+  ; Hom : ∀ h x y, F h (x * y) = F h x * F h y
+  ; Thm3a : ∀ e e' : 'fin C, e != e' → gcdz l (e%:Z  - e'%:Z) = 1%Z
+  ; Thm3b : ∀ h, F h u = h ^+ l
+  }.
 
+Section Homomorphism.
 
-Module Homomorphism (Args : HomArgs).
+Context (Args : HomArgs).
 
-Import Args.
+Notation G := (G Args).
+Notation H := (H Args).
+Notation C := (C Args).
+Notation F := (F Args).
+Notation l := (l Args).
+Notation u := (u Args).
 
 Notation "x ⊗  y" :=
   (@mulg H x y) (at level 40).
@@ -250,7 +257,7 @@ Proof.
   apply /eqP.
   rewrite otf_fto Hom 2!Hom_expgz Hom Hom_invg.
   rewrite H1 H2.
-  rewrite (Thm3b (otf h)).
+  rewrite (Thm3b _ (otf h)).
   rewrite invMg mulgA mulgKV.
   rewrite expgz_neg 2!expgz_pos.
   rewrite -expgzM -expgzD -expgzM -expgzD.
@@ -312,48 +319,51 @@ Proof.
   - rewrite absz_sub //.
 Qed.
 
+Lemma expg_card [G : finGroupType] (x : G) : x ^+ #|G| = 1.
+Proof. rewrite -cardsT expg_cardG //=. Qed.
 
-(* Schnorr instantiation *)
-From SSProve.Crypt Require Import CyclicGroup.
+Lemma expg_trunc [G : finGroupType] (x : G) : x ^+ (Zp_trunc #|G|).+2 = 1.
+Proof.
+  destruct #|G| eqn:E => //=.
+  { by apply fintype0 in E. }
+  destruct n eqn:En => //=; subst.
+  { apply fintype1 in E as [g' E].
+    by rewrite 2!E. }
+  rewrite Zp_cast // -E expg_card //.
+Qed.
 
-Axiom (CG : CyclicGroup).
+Lemma expg_mod_trunc [G : finGroupType] (x : G) (a : nat)
+  : x ^+ (a %% (Zp_trunc #|G|).+2) = x ^+ a.
+Proof. rewrite expg_mod // expg_trunc //. Qed.
 
-Instance Positive_q : Positive (q CG).
-Proof. rewrite -trunc_q //. Qed.
 
-Module SchnorrArgs : HomArgs.
-  Definition G : finGroupType := exp CG.
-  Definition H : finGroupType := el CG.
-  Definition C : positive := mkpos (q CG).
-  Definition F : H → G → H := λ _ x, g CG ^+ x.
-  Definition l : nat := q CG.
-  Definition u : G := 1.
+Section Examples.
 
-  Lemma Hom : ∀ h x y, F h (x * y) = F h x * F h y.
-  Proof.
-    intros h x y.
-    rewrite /F -expgD expg_modq //.
-  Qed.
+Context (SG : finGroupType).
+Context (prime_SG : prime #|SG|).
+Context (g : SG).
 
-  Lemma Thm3a : ∀ e e' : 'fin C, e != e' → gcdz l (e%:Z - e'%:Z) = 1%Z.
-  Proof.
-    intros e e' H.
-    apply gcdz_prime_diff => //.
-    apply prime_order.
-  Qed.
+Program Definition SchnorrArgs := {|
+  G := 'Z_#|SG| ;
+  H := SG ;
+  C := mkpos #|SG| ;
+  F := λ _ x, g ^+ x ;
+  l := #|SG| ;
+  u := 1 ;
+|}.
+Obligation 1.
+  rewrite /F -expgD /= expg_mod_trunc //.
+Qed.
+Obligation 2.
+  apply gcdz_prime_diff => //.
+Qed.
+Obligation 3.
+  rewrite expg_card //.
+Qed.
 
-  Lemma Thm3b : ∀ h, F h u = h ^+ l.
-  Proof.
-    intros h.
-    rewrite expgq //.
-  Qed.
-End SchnorrArgs.
-
-Module Schnorr := Homomorphism SchnorrArgs.
-Print Schnorr.homomorphism.
-Check Schnorr.hom_SHVZK.
-(* Recursive Extraction Schnorr.homomorphism. *)
-
+Definition hom_schnorr := homomorphism SchnorrArgs.
+Print hom_schnorr.
+Check (hom_SHVZK SchnorrArgs).
 
 
 (* Hard Example (Hom F depends on statement h) *)
@@ -381,45 +391,55 @@ Proof.
   simpl in E1, E2; subst. by rewrite -mulg_prod.
 Qed.
 
-Axiom (h : el CG).
+Context (h : SG).
+Context (commutSG : ∀ x y : SG, commute x y).
 
-Module HardArgs : HomArgs.
-  Definition G : finGroupType := dprod (dprod (exp CG) (exp CG)) (exp CG).
-  Definition H : finGroupType := dprod (el CG) (el CG).
-  Definition C : positive := mkpos (q CG).
-  Definition F : H → G → H := λ '(A, B) '(a, b, c),
-    (g CG ^+ a * h ^+ b, B ^+ a * h ^+ c).
-  Definition l : nat := q CG.
-  Definition u : G := 1.
+(* A = g^{x^2}h^y. *)
 
-  Lemma Hom : ∀ h x y, F h (x * y) = F h x * F h y.
-  Proof.
-    intros [A B] [[a b] c] [[a' b'] c'].
-    apply Hom_prod => /=; rewrite 2! expg_modq.
-    - rewrite expgD -2!mulgA.
-      f_equal.
-      rewrite expgD 2!mulgA.
-      f_equal.
-      rewrite CyclicGroup.mulgC //.
-    - rewrite expgD -2!mulgA.
-      f_equal.
-      rewrite expgD 2!mulgA.
-      f_equal.
-      rewrite CyclicGroup.mulgC //.
-  Qed.
+(* Publish B = g ^ x * h ^ r *)
+(* Then A = B ^ x * h ^ c *)
 
-  Lemma Thm3a : ∀ e e' : 'fin C, e != e' → gcdz l (e%:Z - e'%:Z) = 1%Z.
-  Proof.
-    intros e e' H.
-    apply gcdz_prime_diff => //.
-    apply prime_order.
-  Qed.
+Program Definition HardArgs : HomArgs := {|
+  G := dprod 'Z_#|SG| 'Z_#|SG| ;
+  H := dprod SG SG ;
+  C := mkpos #|SG| ;
+  F := λ '(A, B) '(a, b),
+    (B ^+ a * h ^+ b, g ^+ a) ;
+  l := #|SG| ;
+  u := 1 ;
+|}.
+Obligation 1.
+  rewrite /= 3!expg_mod_trunc mulg_prod.
+  f_equal.
+  - rewrite expgD -2!mulgA.
+    f_equal.
+    rewrite expgD 2!mulgA.
+    f_equal.
+    rewrite commutSG //.
+  - rewrite expgD //.
+Qed.
+Obligation 2.
+  apply gcdz_prime_diff => //.
+Qed.
+Obligation 3.
+  rewrite /F /= expg_prod 2!expg_card gsimp //.
+Qed.
 
-  Lemma Thm3b : ∀ h, F h u = h ^+ l.
-  Proof.
-    intros [A B].
-    rewrite /F /= expg_prod 2!expgq gsimp //.
-  Qed.
-End HardArgs.
+Check (hom_SHVZK HardArgs).
 
-Module HardExample := Homomorphism HardArgs.
+(* Rel is the actual relation we want to encode *)
+Definition Rel : SG → 'Z_#|SG| * 'Z_#|SG| → bool
+  := λ A '(x, y), (A == g ^+ (x * x) * h ^+ y)%B.
+
+(* This shows that the encoded relation hold iff Rel holds *)
+Lemma Rel_adequate (A : SG) (x y : 'Z_#|SG|)
+  : Rel A (x, y) = R (homomorphism HardArgs) (fto (A, g ^+ x)) (fto (x, y)).
+Proof.
+  rewrite /= 2!otf_fto.
+  rewrite xpair_eqE /= eq_refl andbC /=.
+  rewrite expgM //.
+Qed.
+
+End Examples.
+
+(* Recursive Extraction hom_schnorr. *)
